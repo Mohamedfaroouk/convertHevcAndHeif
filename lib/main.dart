@@ -1,11 +1,12 @@
+import 'dart:developer';
 import 'dart:io';
 
+import 'package:ffmpeg_kit_flutter/ffmpeg_kit.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_file_dialog/flutter_file_dialog.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:video_compress/video_compress.dart';
+import 'package:lean_file_picker/lean_file_picker.dart';
 
 void main() {
   runApp(const MyApp());
@@ -47,17 +48,18 @@ class _MyHomePageState extends State<MyHomePage> {
   double progress = 0.0;
   @override
   void initState() {
-    VideoCompress.compressProgress$.subscribe((progress) {
-      setState(() {
-        if (progress > 0.0) {
-          loading = true;
-        }
-        this.progress = progress;
-        if (progress == 1.0) {
-          loading = false;
-        }
-      });
-    });
+    // VideoCompress.compressProgress$.subscribe((progress) {
+    //   log(progress.toString());
+    //   setState(() {
+    //     if (progress > 0.0) {
+    //       loading = true;
+    //     }
+    //     this.progress = progress;
+    //     if (progress == 100.0) {
+    //       loading = false;
+    //     }
+    //   });
+    // });
     super.initState();
   }
 
@@ -98,7 +100,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       child: Column(
                         children: const [
                           Icon(
-                            Icons.video_call,
+                            Icons.image,
                             size: 40,
                           ),
                           SizedBox(
@@ -112,32 +114,61 @@ class _MyHomePageState extends State<MyHomePage> {
                 ),
                 Card(
                   child: InkWell(
-                    onTap: () {
-                      final file = ImagePicker.platform.getVideo(
-                        source: ImageSource.gallery,
+                    onTap: () async {
+                      final file = pickFile(
+                        allowedExtensions: [
+                          'hevc',
+                        ],
+                        // allowedMimeTypes: [
+                        //   'hevc',
+                        // ],
                       );
                       file.then((value) async {
                         if (value == null) {
                           return;
                         }
                         final path = value.path;
-                        final newPath = await convertHEVCToMp4(path);
-                        if (newPath == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('File Not Supported'),
-                            ),
-                          );
-                          return;
-                        }
-                        final file = File(newPath);
-                        saveFile(file).then((value) {
+
+                        final inputFilePath = path;
+                        final outputFilePath =
+                            '${path.replaceAll(RegExp(r'\.[^.]*$'), '')}.mp4';
+                        log(outputFilePath);
+
+                        FFmpegKit.execute(
+                                "-i $inputFilePath -y  -vcodec mpeg4 -acodec aac -strict -2 -ac 1 -ar 16000 -r 13 -ab 32000    $outputFilePath")
+                            .then((value) async {
+                          log(await value.getAllLogsAsString() ?? "");
+                          final file = File(outputFilePath);
+                          saveVideo(file).then((value) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('File Saved Successfully'),
+                              ),
+                            );
+                          });
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('File Saved Successfully'),
                             ),
                           );
                         });
+
+                        // if (newPath == null) {
+                        //   ScaffoldMessenger.of(context).showSnackBar(
+                        //     const SnackBar(
+                        //       content: Text('File Not Supported'),
+                        //     ),
+                        //   );
+                        //   return;
+                        // }
+                        // final file = File(newPath);
+                        // saveFile(file).then((value) {
+                        //   ScaffoldMessenger.of(context).showSnackBar(
+                        //     const SnackBar(
+                        //       content: Text('File Saved Successfully'),
+                        //     ),
+                        //   );
+                        // });
                       });
                     },
                     child: Padding(
@@ -145,7 +176,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       child: Column(
                         children: const [
                           Icon(
-                            Icons.image,
+                            Icons.video_call,
                             size: 40,
                           ),
                           SizedBox(
@@ -195,15 +226,18 @@ Future<String> convertHEICtoJPG(String imagePath) async {
 }
 
 Future<String?> convertHEVCToMp4(String videoPath) async {
-  final result = await VideoCompress.compressVideo(
-    videoPath,
-    quality: VideoQuality.DefaultQuality,
-    deleteOrigin: false,
-    includeAudio: true,
-  );
+  return null;
 
-  // Return the path of the converted image
-  return result?.path;
+  // log(videoPath);
+  // final result = await VideoCompress.compressVideo(
+  //   videoPath,
+  //   quality: VideoQuality.DefaultQuality,
+  //   deleteOrigin: false,
+  //   includeAudio: true,
+  // );
+
+  // // Return the path of the converted image
+  // return result?.path;
 }
 
 saveFile(File file) async {
@@ -215,6 +249,20 @@ saveFile(File file) async {
       data: file.readAsBytesSync(),
       mimeType: "image/jpeg",
       fileName: "fileName.jpeg",
+      replace: true,
+    );
+  }
+}
+
+saveVideo(File file) async {
+  final pickedDirectory = await FlutterFileDialog.pickDirectory();
+
+  if (pickedDirectory != null) {
+    final filePath = await FlutterFileDialog.saveFileToDirectory(
+      directory: pickedDirectory,
+      data: file.readAsBytesSync(),
+      mimeType: "video/mp4",
+      fileName: "fileName.mp4",
       replace: true,
     );
   }
