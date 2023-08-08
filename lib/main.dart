@@ -88,13 +88,7 @@ class _MyHomePageState extends State<MyHomePage> {
                           final path = value!.files.first.path;
                           final newPath = await convertHEICtoJPG(path!);
                           final file = File(newPath);
-                          saveFile(file).then((value) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('File Saved Successfully'),
-                              ),
-                            );
-                          });
+                          saveFile(context, file);
                         });
                       },
                       child: Column(
@@ -131,26 +125,27 @@ class _MyHomePageState extends State<MyHomePage> {
 
                         final inputFilePath = path;
                         final outputFilePath =
-                            '${path.replaceAll(RegExp(r'\.[^.]*$'), '')}.mp4';
+                            '${path.replaceAll(RegExp(r'\.[^.]*$'), '')}${DateTime.now().microsecondsSinceEpoch}.mp4';
                         log(outputFilePath);
-
+                        loading = true;
+                        setState(() {});
                         FFmpegKit.execute(
-                                "-i $inputFilePath -y  -vcodec mpeg4 -acodec aac -strict -2 -ac 1 -ar 16000 -r 13 -ab 32000    $outputFilePath")
+                                "-i $inputFilePath -y  -vcodec mpeg4 -acodec aac -qscale 0 $outputFilePath")
                             .then((value) async {
-                          log(await value.getAllLogsAsString() ?? "");
-                          final file = File(outputFilePath);
-                          saveVideo(file).then((value) {
+                          log(((await value.getAllLogsAsString()).toString()));
+                          try {
+                            saveVideo(context, File(outputFilePath));
+                          } on Exception {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text('File Saved Successfully'),
+                                content: Text('Error in Procceing File'),
                               ),
                             );
-                          });
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('File Saved Successfully'),
-                            ),
-                          );
+
+                            return;
+                          }
+                          loading = false;
+                          setState(() {});
                         });
 
                         // if (newPath == null) {
@@ -196,14 +191,12 @@ class _MyHomePageState extends State<MyHomePage> {
             //loading
             if (loading)
               Column(
-                children: [
-                  const Text('Converting'),
-                  const SizedBox(
+                children: const [
+                  Text('Converting'),
+                  SizedBox(
                     height: 10,
                   ),
-                  CircularProgressIndicator(
-                    value: progress,
-                  ),
+                  CircularProgressIndicator(),
                 ],
               ),
           ],
@@ -240,7 +233,18 @@ Future<String?> convertHEVCToMp4(String videoPath) async {
   // return result?.path;
 }
 
-saveFile(File file) async {
+saveFile(context, File file) async {
+  final check = await showDialog(
+    context: context,
+    builder: (context) => AlertDialogToSaveFile(
+      onYes: () {
+        Navigator.of(context).pop(true);
+      },
+    ),
+  );
+  if (check == null) {
+    return;
+  }
   final pickedDirectory = await FlutterFileDialog.pickDirectory();
 
   if (pickedDirectory != null) {
@@ -251,10 +255,26 @@ saveFile(File file) async {
       fileName: "fileName.jpeg",
       replace: true,
     );
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('File Saved Successfully'),
+      ),
+    );
   }
 }
 
-saveVideo(File file) async {
+saveVideo(context, File file) async {
+  final check = await showDialog(
+    context: context,
+    builder: (context) => AlertDialogToSaveFile(
+      onYes: () {
+        Navigator.of(context).pop(true);
+      },
+    ),
+  );
+  if (check == null) {
+    return;
+  }
   final pickedDirectory = await FlutterFileDialog.pickDirectory();
 
   if (pickedDirectory != null) {
@@ -264,6 +284,37 @@ saveVideo(File file) async {
       mimeType: "video/mp4",
       fileName: "fileName.mp4",
       replace: true,
+    );
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('File Saved Successfully'),
+      ),
+    );
+  }
+}
+
+class AlertDialogToSaveFile extends StatelessWidget {
+  const AlertDialogToSaveFile({super.key, required this.onYes});
+  final VoidCallback onYes;
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Save File'),
+      content: const Text('Do you want to save the file?'),
+      actions: [
+        TextButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+          },
+          child: const Text('No'),
+        ),
+        TextButton(
+          onPressed: () {
+            onYes();
+          },
+          child: const Text('Yes'),
+        ),
+      ],
     );
   }
 }
