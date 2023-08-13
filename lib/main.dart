@@ -6,7 +6,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_file_dialog/flutter_file_dialog.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
-import 'package:lean_file_picker/lean_file_picker.dart';
 
 void main() {
   runApp(const MyApp());
@@ -109,19 +108,14 @@ class _MyHomePageState extends State<MyHomePage> {
                 Card(
                   child: InkWell(
                     onTap: () async {
-                      final file = pickFile(
-                        allowedExtensions: [
-                          'hevc',
-                        ],
-                        // allowedMimeTypes: [
-                        //   'hevc',
-                        // ],
+                      final file = FilePicker.platform.pickFiles(
+                        type: FileType.video,
                       );
                       file.then((value) async {
                         if (value == null) {
                           return;
                         }
-                        final path = value.path;
+                        final path = value.files.first.path!;
 
                         final inputFilePath = path;
                         final outputFilePath =
